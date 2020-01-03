@@ -9,6 +9,5 @@ write.o: write.c semaphone.h
 	gcc -c write.c
 
 clean:
+	rm story.txt
 	rm *.o
-	rm *.exe
-	rm *~

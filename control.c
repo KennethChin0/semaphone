@@ -10,91 +10,92 @@
 #include <sys/shm.h>
 #include "semaphone.h"
 
-
 union semun se;
+struct sembuf sb;
 
-
-int main(int argc, char * argv[]){
+int main(int argc, char* argv[]){
+  sb.sem_num = 0;
+  sb.sem_op = -1;
   se.val = 1;
   if (argc > 1){
     if (strcmp(argv[1], "-c") == 0){
       create();
     }
-    if (strcmp(argv[1], "-v") == 0){
+    else if (strcmp(argv[1], "-v") == 0){
       view();
     }
-    if (strcmp(argv[1], "-r") == 0){
+    else if (strcmp(argv[1], "-r") == 0){
       delete();
     }
-
   }
   return 0;
 }
 
+
 int create(){
   // printf("create\n");
-  int semd = semget(KEY, 1, IPC_CREAT | 0644);
-  int shmd, fd;
-  if (semd < 0){
+  int semid = semget(KEY, 1, IPC_CREAT | 0644);
+  if (semid < 0){
     printf("%s\n", strerror(errno));
     return -1;
   }
-  semctl(semd, 0, SETVAL, se);
-  shmd = shmget(KEY2, sizeof(char *), IPC_CREAT | 0644);
-  if (shmd < 0){
+  printf("Semaphore Created\n");
+  semctl(semid, 0, SETVAL, se);
+  int shmid = shmget(KEY2, sizeof(char *),IPC_CREAT | 0644);
+  if (shmid < 0){
     printf("%s\n", strerror(errno));
     return -1;
   }
   printf("Shared Memory Created\n");
-  fd = open("story.txt", O_CREAT | O_RDWR, 0644);
-  if (fd < 0) {
+  int fd = open("story.txt", O_CREAT | O_RDWR, 0644);
+  if (fd < 0){
     printf("%s\n", strerror(errno));
     return -1;
   }
-  printf("File Created\n");
+  printf("Story Created\n");
   close(fd);
   return 0;
 }
 
 int view(){
+  // printf("viewn");
   int fd = open("story.txt", O_RDONLY);
   if (fd < 0){
-    printf("%s\n", strerror(errno) );
+    printf("%s\n", strerror(errno));
     return -1;
   }
-  FILE * f = fopen("story", "r");
-  printf("The Story So Far:\n");
   char buff[1024];
   buff[0] = '\0';
+  read(fd, buff, 1024);
   if (strlen(buff) != 0){
     *(strrchr(buff, '\n') + 1) = '\0';
   }
-   printf("%s\n", buff);
-   close(fd);
-   return 0;
+  printf("The Story So Far:\n");
+  printf("%s\n", buff);
+  close(fd);
+  return 0;
 }
 
 int delete(){
   // printf("remove\n");
-  struct sembuf sb;
-  int semd = semget(KEY, 1, 0);
-  if (semd < 0){
-    printf("%s\n", strerror(errno) );
-    return -1;
+  int semid = semget(KEY, 1, 0);
+  if (semid < 0){
+    printf("%s\n", strerror(errno));
+    return 1;
   }
   printf("Trying to get in\n");
-  semop(semd,&sb, 1);
-  int shmd = shmget(KEY2, sizeof(char *), 0);
-  if (shmd < 0){
+  semop(semid,&sb, 1);
+  int shmid = shmget(KEY2, sizeof(char *), 0);
+  if (shmid < 0){
     printf("%s\n", strerror(errno));
     return -1;
   }
   view();
-  shmctl(shmd, IPC_RMID, 0);
-  printf("Shared memory removed\n");
-  remove("file.txt");
-  printf("File Removed\n");
-  semctl(semd, IPC_RMID, 0);
-  printf("Semaphore removed\n");
+  shmctl(shmid, IPC_RMID, 0);
+  printf("Shared Memory Removed\n");
+  remove("story.txt");
+  printf("Story Removed\n");
+  semctl(semid, IPC_RMID, 0);
+  printf("Semaphore Removed\n");
   return 0;
 }
